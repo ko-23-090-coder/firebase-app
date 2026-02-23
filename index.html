@@ -128,12 +128,6 @@ window.deletePost = async (id) => {
   await deleteDoc(docRef);
 };
 
-  if (!newEmail) return;
-
-  const docRef = doc(db, "requests", id);
-  await updateDoc(docRef, { email: newEmail });
-};
-
 document.getElementById('mainBtn').onclick = async () => {
   const btn = document.getElementById('mainBtn');
   btn.disabled = true;
@@ -169,11 +163,11 @@ onSnapshot(q, (snapshot) => {
     </button>
 
     <button onclick="editEmail('${docItem.id}')">
-      ✏ Редактировать
+      Редактировать
     </button>
 
     <button onclick="deletePost('${docItem.id}')">
-      🗑 Удалить
+      Удалить
     </button>
   </div>
 `;

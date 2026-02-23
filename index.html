@@ -91,7 +91,7 @@ input {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
 import {
   getFirestore, collection, addDoc, query, orderBy,
-  onSnapshot, serverTimestamp, updateDoc, doc, increment
+  onSnapshot, serverTimestamp, updateDoc, doc, increment, deleteDoc
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -110,6 +110,28 @@ const db = getFirestore(app);
 window.processLike = async (id) => {
   const docRef = doc(db, "requests", id);
   await updateDoc(docRef, { likes: increment(1) });
+};
+
+window.editEmail = async (id) => {
+  const newEmail = prompt("Введите новый email:");
+  if (!newEmail) return;
+
+  const docRef = doc(db, "requests", id);
+  await updateDoc(docRef, { email: newEmail });
+};
+
+window.deletePost = async (id) => {
+  const confirmDelete = confirm("Удалить запись?");
+  if (!confirmDelete) return;
+
+  const docRef = doc(db, "requests", id);
+  await deleteDoc(docRef);
+};
+
+  if (!newEmail) return;
+
+  const docRef = doc(db, "requests", id);
+  await updateDoc(docRef, { email: newEmail });
 };
 
 document.getElementById('mainBtn').onclick = async () => {
@@ -137,15 +159,24 @@ onSnapshot(q, (snapshot) => {
     const data = docItem.data();
 
     feed.innerHTML += `
-      <div class="post">
-        <span class="time">${data.timestamp?.toDate().toLocaleTimeString() || '...'}</span>
-        <b>${data.name}</b>
-        <p style="margin:5px 0;">${data.email}</p>
-        <button class="like-btn" onclick="processLike('${docItem.id}')">
-          👍 ${data.likes || 0}
-        </button>
-      </div>
-    `;
+  <div class="post">
+    <span class="time">${data.timestamp?.toDate().toLocaleTimeString() || '...'}</span>
+    <b>${data.name}</b>
+    <p style="margin:5px 0;">${data.email}</p>
+
+    <button class="like-btn" onclick="processLike('${docItem.id}')">
+      👍 ${data.likes || 0}
+    </button>
+
+    <button onclick="editEmail('${docItem.id}')">
+      ✏ Редактировать
+    </button>
+
+    <button onclick="deletePost('${docItem.id}')">
+      🗑 Удалить
+    </button>
+  </div>
+`;
   });
 });
 </script>

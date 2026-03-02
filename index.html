@@ -97,6 +97,10 @@ button {
   <button id="mainBtn">Опубликовать</button>
 </div>
 
+  <div id="testSection" class="container">
+  <button id="testBtn">Попробовать создать запись без авторизации</button>
+</div>
+
 <div id="feed" style="width:100%; max-width:500px;"></div>
 
 <script type="module">
@@ -108,7 +112,7 @@ import {
   signOut,
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-  import {
+import {
   getFirestore,
   collection,
   addDoc,
@@ -122,6 +126,7 @@ import {
   deleteDoc
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
+// 1️⃣ Инициализация Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyCmbP3zEtq3T0gVJtkCTt3Zmd2uKS5ONrY",
   authDomain: "start-d5cf0.firebaseapp.com",
@@ -136,6 +141,8 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
+
+// 2️⃣ DOM элементы
 const loginBtn = document.getElementById("loginBtn");
 const logoutBtn = document.getElementById("logoutBtn");
 const userInfo = document.getElementById("userInfo");
@@ -144,7 +151,9 @@ const userName = document.getElementById("userName");
 const userPhoto = document.getElementById("userPhoto");
 const mainBtn = document.getElementById("mainBtn");
 const feed = document.getElementById("feed");
+const testBtn = document.getElementById("testBtn");
 
+// 3️⃣ Кнопка входа/выход
 loginBtn.onclick = () => signInWithPopup(auth, provider);
 logoutBtn.onclick = () => signOut(auth);
 
@@ -162,12 +171,7 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-window.processLike = async (id) => {
-  await updateDoc(doc(db, "requests", id), {
-    likes: increment(1)
-  });
-};
-
+// 4️⃣ Создание поста авторизованным пользователем
 mainBtn.onclick = async () => {
   const content = document.getElementById('content').value;
   if (!content) return;
@@ -183,54 +187,61 @@ mainBtn.onclick = async () => {
   document.getElementById('content').value = "";
 };
 
-const q = query(collection(db, "requests"), orderBy("timestamp", "desc"));
+// 5️⃣ Попытка создать запись без авторизации
+testBtn.onclick = async () => {
+  try {
+    await addDoc(collection(db, "requests"), {
+      name: "Test",
+      text: "Проверка безопасности",
+      likes: 0,
+      timestamp: serverTimestamp()
+    });
+    alert("Запись создана!");
+  } catch(e) {
+    alert("Ошибка: " + e.message);
+  }
+};
 
-  window.editPost = async (id, currentText) => {
+// 6️⃣ Лайки, редактирование, удаление
+window.processLike = async (id) => {
+  await updateDoc(doc(db, "requests", id), { likes: increment(1) });
+};
+
+window.editPost = async (id, currentText) => {
   const newText = prompt("Введите новый текст:", currentText);
   if (!newText) return;
-
-  await updateDoc(doc(db, "requests", id), {
-    text: newText
-  });
+  await updateDoc(doc(db, "requests", id), { text: newText });
 };
 
 window.deletePost = async (id) => {
-  const confirmDelete = confirm("Удалить запись?");
-  if (!confirmDelete) return;
-
+  if (!confirm("Удалить запись?")) return;
   await deleteDoc(doc(db, "requests", id));
-}; 
-  
+};
+
+// 7️⃣ Загрузка постов
+const q = query(collection(db, "requests"), orderBy("timestamp", "desc"));
 onSnapshot(q, (snapshot) => {
   feed.innerHTML = "";
   snapshot.forEach((docItem) => {
     const data = docItem.data();
-
     feed.innerHTML += `
-  <div class="post">
-    <div class="post-header">
-      <img src="${data.photo || ''}" class="post-avatar">
-      <b>${data.name}</b>
-    </div>
-
-    <p>${data.text}</p>
-
-    <button class="like-btn" onclick="processLike('${docItem.id}')">
-      👍 ${data.likes || 0}
-    </button>
-
-    <button onclick="editPost('${docItem.id}', \`${data.text}\`)">
-      Редактировать
-    </button>
-
-    <button onclick="deletePost('${docItem.id}')">
-      Удалить
-    </button>
-  </div>
-`;
+      <div class="post">
+        <div class="post-header">
+          <img src="${data.photo || ''}" class="post-avatar">
+          <b>${data.name}</b>
+        </div>
+        <p>${data.text}</p>
+        <button class="like-btn" onclick="processLike('${docItem.id}')">
+          👍 ${data.likes || 0}
+        </button>
+        <button onclick="editPost('${docItem.id}', \`${data.text}\`)">
+          Редактировать
+        </button>
+        <button onclick="deletePost('${docItem.id}')">
+          Удалить
+        </button>
+      </div>
+    `;
   });
 });
 </script>
-
-</body>
-</html>

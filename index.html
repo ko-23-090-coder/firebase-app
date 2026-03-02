@@ -93,7 +93,12 @@ button {
 
 <div id="messageForm" class="container" style="display:none;">
   <h3>Создать запись</h3>
+
   <input type="text" id="content" placeholder="Что у вас нового?">
+
+  <!-- ВОТ СЮДА добавляем -->
+  <input type="file" id="imageInput" accept="image/*">
+
   <button id="mainBtn">Опубликовать</button>
 </div>
 
@@ -104,6 +109,12 @@ button {
 <div id="feed" style="width:100%; max-width:500px;"></div>
 
 <script type="module">
+  import {
+  getStorage,
+  ref,
+  uploadBytes,
+  getDownloadURL
+} from "https://www.gstatic.com/firebasejs/10.7.0/firebase-storage.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
 import {
   getAuth,
@@ -140,6 +151,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
+const storage = getStorage(app); // ← теперь правильно
 const provider = new GoogleAuthProvider();
 
 // 2️⃣ DOM элементы
@@ -174,17 +186,30 @@ onAuthStateChanged(auth, (user) => {
 // 4️⃣ Создание поста авторизованным пользователем
 mainBtn.onclick = async () => {
   const content = document.getElementById('content').value;
-  if (!content) return;
+  const file = document.getElementById('imageInput').files[0];
+
+  if (!content && !file) return;
+
+  let imageUrl = null;
+
+  // Если выбрана картинка — загружаем её
+  if (file) {
+    const imageRef = ref(storage, "images/" + Date.now() + "_" + file.name);
+    await uploadBytes(imageRef, file);
+    imageUrl = await getDownloadURL(imageRef);
+  }
 
   await addDoc(collection(db, "requests"), {
     name: auth.currentUser.displayName,
     photo: auth.currentUser.photoURL,
     text: content,
+    image: imageUrl || null,
     likes: 0,
     timestamp: serverTimestamp()
   });
 
   document.getElementById('content').value = "";
+  document.getElementById('imageInput').value = "";
 };
 
 // 5️⃣ Попытка создать запись без авторизации
@@ -231,6 +256,7 @@ onSnapshot(q, (snapshot) => {
           <b>${data.name}</b>
         </div>
         <p>${data.text}</p>
+        ${data.image ? `<img src="${data.image}" style="width:100%; margin-top:10px; border-radius:8px;">` : ""}
         <button class="like-btn" onclick="processLike('${docItem.id}')">
           👍 ${data.likes || 0}
         </button>

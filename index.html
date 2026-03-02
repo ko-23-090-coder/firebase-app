@@ -179,19 +179,21 @@ onAuthStateChanged(auth, (user) => {
 mainBtn.onclick = async () => {
   const content = document.getElementById('content').value;
   const file = document.getElementById('imageInput').files[0];
+let imageBase64 = null;
 
-  if (!content && !file) return;
-
-  let imageBase64 = null;
-
-  if (file) {
-    const reader = new FileReader();
-    
-    imageBase64 = await new Promise((resolve) => {
-      reader.onload = () => resolve(reader.result);
-      reader.readAsDataURL(file);
-    });
+if (file) {
+  if (file.size > 700000) {
+    alert("Файл слишком большой! Максимум 700KB");
+    return;
   }
+
+  imageBase64 = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
+  });
+}
 
   await addDoc(collection(db, "requests"), {
     uid: auth.currentUser.uid,

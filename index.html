@@ -109,12 +109,6 @@ button {
 <div id="feed" style="width:100%; max-width:500px;"></div>
 
 <script type="module">
-  import {
-  getStorage,
-  ref,
-  uploadBytes,
-  getDownloadURL
-} from "https://www.gstatic.com/firebasejs/10.7.0/firebase-storage.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
 import {
   getAuth,
@@ -151,7 +145,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
-const storage = getStorage(app); // ← теперь правильно
 const provider = new GoogleAuthProvider();
 
 // 2️⃣ DOM элементы
@@ -183,27 +176,29 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-// 4️⃣ Создание поста авторизованным пользователем
 mainBtn.onclick = async () => {
   const content = document.getElementById('content').value;
   const file = document.getElementById('imageInput').files[0];
 
   if (!content && !file) return;
 
-  let imageUrl = null;
+  let imageBase64 = null;
 
-  // Если выбрана картинка — загружаем её
   if (file) {
-    const imageRef = ref(storage, "images/" + Date.now() + "_" + file.name);
-    await uploadBytes(imageRef, file);
-    imageUrl = await getDownloadURL(imageRef);
+    const reader = new FileReader();
+    
+    imageBase64 = await new Promise((resolve) => {
+      reader.onload = () => resolve(reader.result);
+      reader.readAsDataURL(file);
+    });
   }
 
   await addDoc(collection(db, "requests"), {
+    uid: auth.currentUser.uid,
     name: auth.currentUser.displayName,
     photo: auth.currentUser.photoURL,
     text: content,
-    image: imageUrl || null,
+    image: imageBase64 || null,
     likes: 0,
     timestamp: serverTimestamp()
   });

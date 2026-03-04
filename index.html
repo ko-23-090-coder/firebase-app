@@ -76,6 +76,68 @@ button {
 .like-btn {
   margin-top: 10px;
 }
+
+/* ── DM стили ── */
+#chatBox {
+  margin-top: 15px;
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.chat-bubble {
+  max-width: 75%;
+  padding: 8px 12px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.chat-bubble.me {
+  background: #007bff;
+  color: white;
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-bubble.other {
+  background: #e9ecef;
+  color: #333;
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+}
+
+.dm-input-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  align-items: center;
+}
+
+.dm-input-row input {
+  flex: 1;
+  margin: 0;
+}
+
+.dm-input-row button {
+  width: auto;
+  padding: 12px 18px;
+  white-space: nowrap;
+}
+
+#dmStatus {
+  font-size: 12px;
+  color: #999;
+  margin-top: 6px;
+  min-height: 16px;
+}
 </style>
 </head>
 
@@ -93,32 +155,33 @@ button {
 
 <div id="messageForm" class="container" style="display:none;">
   <h3>Создать запись</h3>
-
   <input type="text" id="content" placeholder="Что у вас нового?">
-
   <input type="file" id="imageInput" accept="image/*">
-
   <button id="mainBtn">Опубликовать</button>
 </div>
 
-  <div id="testSection" class="container">
+<div id="testSection" class="container">
   <button id="testBtn">Попробовать создать запись без авторизации</button>
 </div>
 
 <div id="feed" style="width:100%; max-width:500px;"></div>
+
 <div id="dmSection" class="container" style="display:none;">
-  <h3>Личные сообщения</h3>
+  <h3>💬 Личные сообщения</h3>
 
   <select id="userSelect">
     <option value="">Выберите собеседника</option>
   </select>
 
-  <div id="chatBox" style="margin-top:15px;"></div>
+  <div id="chatBox"></div>
+  <div id="dmStatus"></div>
 
-  <input type="text" id="dmInput" placeholder="Ваше сообщение...">
-  <button id="sendDmBtn">Отправить</button>
+  <div class="dm-input-row">
+    <input type="text" id="dmInput" placeholder="Ваше сообщение...">
+    <button id="sendDmBtn">Отправить</button>
+  </div>
 </div>
-  
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
 import {
@@ -144,7 +207,7 @@ import {
   setDoc
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
-// 1️⃣ Инициализация Firebase
+// ── Firebase config ──
 const firebaseConfig = {
   apiKey: "AIzaSyCmbP3zEtq3T0gVJtkCTt3Zmd2uKS5ONrY",
   authDomain: "start-d5cf0.firebaseapp.com",
@@ -160,21 +223,21 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 
-// 2️⃣ DOM элементы
-const loginBtn = document.getElementById("loginBtn");
-const logoutBtn = document.getElementById("logoutBtn");
-const userInfo = document.getElementById("userInfo");
+// ── DOM ──
+const loginBtn    = document.getElementById("loginBtn");
+const logoutBtn   = document.getElementById("logoutBtn");
+const userInfo    = document.getElementById("userInfo");
 const messageForm = document.getElementById("messageForm");
-const userName = document.getElementById("userName");
-const userPhoto = document.getElementById("userPhoto");
-const mainBtn = document.getElementById("mainBtn");
-const feed = document.getElementById("feed");
-const testBtn = document.getElementById("testBtn");
+const userName    = document.getElementById("userName");
+const userPhoto   = document.getElementById("userPhoto");
+const mainBtn     = document.getElementById("mainBtn");
+const feed        = document.getElementById("feed");
+const testBtn     = document.getElementById("testBtn");
+const dmSection   = document.getElementById("dmSection");
+const dmStatus    = document.getElementById("dmStatus");
 
-loginBtn.onclick = () => signInWithPopup(auth, provider);
+loginBtn.onclick = () => signInWithPopup(auth, provider).catch(e => alert(e.message));
 logoutBtn.onclick = () => signOut(auth);
-
-const dmSection = document.getElementById("dmSection");
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {
@@ -182,10 +245,8 @@ onAuthStateChanged(auth, async (user) => {
     userInfo.style.display = 'flex';
     messageForm.style.display = 'block';
     dmSection.style.display = 'block';
-
     userName.innerText = user.displayName;
     userPhoto.src = user.photoURL;
-
     loadUsers();
   } else {
     loginBtn.style.display = 'block';
@@ -194,25 +255,25 @@ onAuthStateChanged(auth, async (user) => {
     dmSection.style.display = 'none';
   }
 });
-  
+
+// ── Публикация поста ──
 mainBtn.onclick = async () => {
   const content = document.getElementById('content').value;
   const file = document.getElementById('imageInput').files[0];
-let imageBase64 = null;
+  let imageBase64 = null;
 
-if (file) {
-  if (file.size > 700000) {
-    alert("Файл слишком большой! Максимум 700KB");
-    return;
+  if (file) {
+    if (file.size > 700000) {
+      alert("Файл слишком большой! Максимум 700KB");
+      return;
+    }
+    imageBase64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (err) => reject(err);
+      reader.readAsDataURL(file);
+    });
   }
-
-  imageBase64 = await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = (err) => reject(err);
-    reader.readAsDataURL(file);
-  });
-}
 
   await addDoc(collection(db, "requests"), {
     uid: auth.currentUser.uid,
@@ -228,6 +289,7 @@ if (file) {
   document.getElementById('imageInput').value = "";
 };
 
+// ── Тест без авторизации ──
 testBtn.onclick = async () => {
   try {
     await addDoc(collection(db, "requests"), {
@@ -242,6 +304,7 @@ testBtn.onclick = async () => {
   }
 };
 
+// ── Лайк / редактировать / удалить (глобальные для onclick в innerHTML) ──
 window.processLike = async (id) => {
   await updateDoc(doc(db, "requests", id), { likes: increment(1) });
 };
@@ -257,8 +320,9 @@ window.deletePost = async (id) => {
   await deleteDoc(doc(db, "requests", id));
 };
 
-const q = query(collection(db, "requests"), orderBy("timestamp", "desc"));
-onSnapshot(q, (snapshot) => {
+// ── Лента ──
+const feedQuery = query(collection(db, "requests"), orderBy("timestamp", "desc"));
+onSnapshot(feedQuery, (snapshot) => {
   feed.innerHTML = "";
   snapshot.forEach((docItem) => {
     const data = docItem.data();
@@ -283,10 +347,11 @@ onSnapshot(q, (snapshot) => {
     `;
   });
 });
+
+// ── DM: загрузка списка пользователей ──
 async function loadUsers() {
   const snapshot = await getDocs(collection(db, "requests"));
   const userSelect = document.getElementById("userSelect");
-
   const users = new Map();
 
   snapshot.forEach(docItem => {
@@ -297,64 +362,111 @@ async function loadUsers() {
   });
 
   userSelect.innerHTML = '<option value="">Выберите собеседника</option>';
-
   users.forEach((name, uid) => {
     userSelect.innerHTML += `<option value="${uid}">${name}</option>`;
   });
 }
 
+// ── DM: создать или открыть чат ──
 async function getChatId(uid1, uid2) {
   const chatId = uid1 < uid2 ? uid1 + "_" + uid2 : uid2 + "_" + uid1;
-
   await setDoc(doc(db, "chats", chatId), {
     participants: [uid1, uid2]
   }, { merge: true });
-
   return chatId;
 }
 
-document.getElementById("sendDmBtn").onclick = async () => {
-  const selectedUid = document.getElementById("userSelect").value;
-  const text = document.getElementById("dmInput").value;
+// ── DM: состояние текущего чата ──
+let currentChatId = null;
+let unsubscribeChat = null;
 
-  if (!selectedUid || !text) return;
-
-  const chatId = await getChatId(auth.currentUser.uid, selectedUid);
-
-  await addDoc(collection(db, "chats", chatId, "messages"), {
-    senderId: auth.currentUser.uid,
-    text: text,
-    timestamp: serverTimestamp()
-  });
-
-  document.getElementById("dmInput").value = "";
-};
-
+// ── DM: смена собеседника ──
 document.getElementById("userSelect").onchange = async (e) => {
   const selectedUid = e.target.value;
+  const chatBox = document.getElementById("chatBox");
+  chatBox.innerHTML = "";
+  dmStatus.textContent = "";
+
+  // Отписываемся от предыдущего чата — это было главной причиной глюков
+  if (unsubscribeChat) {
+    unsubscribeChat();
+    unsubscribeChat = null;
+  }
+  currentChatId = null;
+
   if (!selectedUid) return;
 
-  const chatId = await getChatId(auth.currentUser.uid, selectedUid);
+  dmStatus.textContent = "Загрузка...";
 
-  const q = query(
-    collection(db, "chats", chatId, "messages"),
-    orderBy("timestamp")
-  );
+  try {
+    const chatId = await getChatId(auth.currentUser.uid, selectedUid);
+    currentChatId = chatId; // сохраняем для кнопки отправки
 
-  onSnapshot(q, (snapshot) => {
-    const chatBox = document.getElementById("chatBox");
-    chatBox.innerHTML = "";
+    const messagesQuery = query(
+      collection(db, "chats", chatId, "messages"),
+      orderBy("timestamp")
+    );
 
-    snapshot.forEach(docItem => {
-      const data = docItem.data();
+    unsubscribeChat = onSnapshot(messagesQuery, (snapshot) => {
+      chatBox.innerHTML = "";
 
-      chatBox.innerHTML += `
-        <p>
-          <b>${data.senderId === auth.currentUser.uid ? "Вы" : "Собеседник"}:</b>
-          ${data.text}
-        </p>
-      `;
+      if (snapshot.empty) {
+        chatBox.innerHTML = '<p style="color:#aaa;text-align:center;font-size:13px;padding:10px;">Сообщений пока нет</p>';
+        return;
+      }
+
+      snapshot.forEach(docItem => {
+        const data = docItem.data();
+        const isMe = data.senderId === auth.currentUser.uid;
+
+        const bubble = document.createElement("div");
+        bubble.className = "chat-bubble " + (isMe ? "me" : "other");
+        bubble.textContent = data.text;
+        chatBox.appendChild(bubble);
+      });
+
+      chatBox.scrollTop = chatBox.scrollHeight;
     });
-  });
-};  
+
+    dmStatus.textContent = "✓ Чат открыт";
+    setTimeout(() => { dmStatus.textContent = ""; }, 1500);
+
+  } catch(e) {
+    dmStatus.textContent = "Ошибка: " + e.message;
+  }
+};
+
+// ── DM: отправка сообщения ──
+async function sendDM() {
+  const selectedUid = document.getElementById("userSelect").value;
+  const input = document.getElementById("dmInput");
+  const text = input.value.trim();
+
+  if (!selectedUid) { alert("Выберите собеседника"); return; }
+  if (!text) return;
+
+  // Берём уже открытый chatId — не делаем лишний запрос к Firestore
+  const chatId = currentChatId;
+  if (!chatId) { alert("Подождите, чат ещё открывается..."); return; }
+
+  try {
+    await addDoc(collection(db, "chats", chatId, "messages"), {
+      senderId: auth.currentUser.uid,
+      text: text,
+      timestamp: serverTimestamp()
+    });
+    input.value = "";
+  } catch(e) {
+    alert("Ошибка отправки: " + e.message);
+  }
+}
+
+document.getElementById("sendDmBtn").onclick = sendDM;
+
+// Enter для отправки
+document.getElementById("dmInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") sendDM();
+});
 </script>
+</body>
+</html>

@@ -219,7 +219,7 @@
 
 <!-- Авторизация -->
 <div id="authSection" class="container">
-  <button id="loginBtn">Войти через Google</button>
+  <button id="loginBtn">🔑 Войти через Google</button>
   <div id="userInfo" style="display:none;" class="auth-bar">
     <img id="userPhoto" class="user-avatar" alt="avatar">
     <span id="userName" class="user-name"></span>
@@ -229,7 +229,7 @@
 
 <!-- Форма создания поста -->
 <div id="messageForm" class="container" style="display:none;">
-  <h3>Создать запись</h3>
+  <h3>✏️ Создать запись</h3>
   <input type="text" id="content" placeholder="Что у вас нового?">
   <input type="file" id="imageInput" accept="image/*">
   <button id="mainBtn">Опубликовать</button>
@@ -240,7 +240,7 @@
 
 <!-- Личные сообщения -->
 <div id="dmSection" class="container" style="display:none;">
-  <h3>Личные сообщения</h3>
+  <h3>💬 Личные сообщения</h3>
   <select id="userSelect">
     <option value="">— Выберите собеседника —</option>
   </select>
@@ -274,7 +274,7 @@ import {
   deleteDoc,
   getDocs,
   setDoc,
-  get
+  getDoc
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
 // ── Firebase config ──────────────────────────────────────────────────────────
@@ -447,12 +447,12 @@ function buildPostElement(docItem) {
   if (isOwner) {
     const editBtn = document.createElement("button");
     editBtn.className = "btn-small btn-secondary";
-    editBtn.textContent = "Редактировать";
+    editBtn.textContent = "✏️ Редактировать";
     editBtn.onclick = () => handleEdit(docItem.id, data.text);
 
     const delBtn = document.createElement("button");
     delBtn.className = "btn-small btn-danger";
-    delBtn.textContent = "Удалить";
+    delBtn.textContent = "🗑 Удалить";
     delBtn.onclick = () => handleDelete(docItem.id);
 
     actions.append(editBtn, delBtn);
@@ -577,5 +577,4 @@ document.getElementById("dmInput").addEventListener("keydown", (e) => {
   if (e.key === "Enter") document.getElementById("sendDmBtn").click();
 });
 </script>
-</body>
-</html>
+

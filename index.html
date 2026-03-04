@@ -96,7 +96,6 @@ button {
 
   <input type="text" id="content" placeholder="Что у вас нового?">
 
-  <!-- ВОТ СЮДА добавляем -->
   <input type="file" id="imageInput" accept="image/*">
 
   <button id="mainBtn">Опубликовать</button>
@@ -107,7 +106,19 @@ button {
 </div>
 
 <div id="feed" style="width:100%; max-width:500px;"></div>
+<div id="dmSection" class="container" style="display:none;">
+  <h3>Личные сообщения</h3>
 
+  <select id="userSelect">
+    <option value="">Выберите собеседника</option>
+  </select>
+
+  <div id="chatBox" style="margin-top:15px;"></div>
+
+  <input type="text" id="dmInput" placeholder="Ваше сообщение...">
+  <button id="sendDmBtn">Отправить</button>
+</div>
+  
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
 import {
@@ -128,7 +139,9 @@ import {
   updateDoc,
   doc,
   increment,
-  deleteDoc
+  deleteDoc,
+  getDocs,
+  setDoc
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
 // 1️⃣ Инициализация Firebase
@@ -158,24 +171,30 @@ const mainBtn = document.getElementById("mainBtn");
 const feed = document.getElementById("feed");
 const testBtn = document.getElementById("testBtn");
 
-// 3️⃣ Кнопка входа/выход
 loginBtn.onclick = () => signInWithPopup(auth, provider);
 logoutBtn.onclick = () => signOut(auth);
 
-onAuthStateChanged(auth, (user) => {
+const dmSection = document.getElementById("dmSection");
+
+onAuthStateChanged(auth, async (user) => {
   if (user) {
     loginBtn.style.display = 'none';
     userInfo.style.display = 'flex';
     messageForm.style.display = 'block';
+    dmSection.style.display = 'block';
+
     userName.innerText = user.displayName;
     userPhoto.src = user.photoURL;
+
+    loadUsers();
   } else {
     loginBtn.style.display = 'block';
     userInfo.style.display = 'none';
     messageForm.style.display = 'none';
+    dmSection.style.display = 'none';
   }
 });
-
+  
 mainBtn.onclick = async () => {
   const content = document.getElementById('content').value;
   const file = document.getElementById('imageInput').files[0];
@@ -209,7 +228,6 @@ if (file) {
   document.getElementById('imageInput').value = "";
 };
 
-// 5️⃣ Попытка создать запись без авторизации
 testBtn.onclick = async () => {
   try {
     await addDoc(collection(db, "requests"), {
@@ -224,7 +242,6 @@ testBtn.onclick = async () => {
   }
 };
 
-// 6️⃣ Лайки, редактирование, удаление
 window.processLike = async (id) => {
   await updateDoc(doc(db, "requests", id), { likes: increment(1) });
 };
@@ -240,7 +257,6 @@ window.deletePost = async (id) => {
   await deleteDoc(doc(db, "requests", id));
 };
 
-// 7️⃣ Загрузка постов
 const q = query(collection(db, "requests"), orderBy("timestamp", "desc"));
 onSnapshot(q, (snapshot) => {
   feed.innerHTML = "";
@@ -267,4 +283,78 @@ onSnapshot(q, (snapshot) => {
     `;
   });
 });
+async function loadUsers() {
+  const snapshot = await getDocs(collection(db, "requests"));
+  const userSelect = document.getElementById("userSelect");
+
+  const users = new Map();
+
+  snapshot.forEach(docItem => {
+    const data = docItem.data();
+    if (data.uid && data.uid !== auth.currentUser.uid) {
+      users.set(data.uid, data.name);
+    }
+  });
+
+  userSelect.innerHTML = '<option value="">Выберите собеседника</option>';
+
+  users.forEach((name, uid) => {
+    userSelect.innerHTML += `<option value="${uid}">${name}</option>`;
+  });
+}
+
+async function getChatId(uid1, uid2) {
+  const chatId = uid1 < uid2 ? uid1 + "_" + uid2 : uid2 + "_" + uid1;
+
+  await setDoc(doc(db, "chats", chatId), {
+    participants: [uid1, uid2]
+  }, { merge: true });
+
+  return chatId;
+}
+
+document.getElementById("sendDmBtn").onclick = async () => {
+  const selectedUid = document.getElementById("userSelect").value;
+  const text = document.getElementById("dmInput").value;
+
+  if (!selectedUid || !text) return;
+
+  const chatId = await getChatId(auth.currentUser.uid, selectedUid);
+
+  await addDoc(collection(db, "chats", chatId, "messages"), {
+    senderId: auth.currentUser.uid,
+    text: text,
+    timestamp: serverTimestamp()
+  });
+
+  document.getElementById("dmInput").value = "";
+};
+
+document.getElementById("userSelect").onchange = async (e) => {
+  const selectedUid = e.target.value;
+  if (!selectedUid) return;
+
+  const chatId = await getChatId(auth.currentUser.uid, selectedUid);
+
+  const q = query(
+    collection(db, "chats", chatId, "messages"),
+    orderBy("timestamp")
+  );
+
+  onSnapshot(q, (snapshot) => {
+    const chatBox = document.getElementById("chatBox");
+    chatBox.innerHTML = "";
+
+    snapshot.forEach(docItem => {
+      const data = docItem.data();
+
+      chatBox.innerHTML += `
+        <p>
+          <b>${data.senderId === auth.currentUser.uid ? "Вы" : "Собеседник"}:</b>
+          ${data.text}
+        </p>
+      `;
+    });
+  });
+};  
 </script>
